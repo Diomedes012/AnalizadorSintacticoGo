@@ -1,0 +1,186 @@
+﻿@page "/"
+@using AnalizadorSintacticoGo.Models
+@using AnalizadorSintacticoGo.Services
+@rendermode InteractiveServer
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📝 Editor de Código (Go)</h5>
+                    <button class="btn btn-success btn-sm" @onclick="EjecutarAnalisis">
+                        <i class="oi oi-play-circle"></i> Ejecutar
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="editor-container">
+                        <div class="line-numbers">
+                            @for (int i = 1; i <= TotalLineas; i++)
+                            {
+                                <div>@i</div>
+                            }
+                        </div>
+                        <textarea @bind="CodigoFuente"
+                                  @oninput="ActualizarLineas"
+                                  class="form-control code-area"
+                                  placeholder="Escribe tu código Go aquí..."
+                                  spellcheck="false"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-3 border-0">
+                <div class="card-header bg-black text-white border-bottom-0 rounded-top">
+                    <h6 class="mb-0 font-monospace">_ Terminal Salida</h6>
+                </div>
+                <div class="card-body bg-black text-light font-monospace p-3 terminal-box">
+                    @if (ListaErrores.Any())
+                    {
+                        <span class="text-danger">Existen errores de compilación. Revisa el panel derecho.</span>
+                    }
+                    else if (ErroresEjecucion.Any())
+                    {
+                        @foreach (var err in ErroresEjecucion)
+                        {
+                            <div class="text-danger">@err</div>
+                        }
+                    }
+                    else if (SalidaConsola.Any())
+                    {
+                        @foreach (var linea in SalidaConsola)
+                        {
+                            <div><span class="text-success">➜</span> @linea</div>
+                        }
+                    }
+                    else if (AnalisisRealizado)
+                    {
+                        <span class="text-muted">Proceso terminado con código 0 (Sin salida).</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">🔍 Reporte de Compilación</h5>
+                </div>
+                <div class="card-body scrollable-table">
+                    @if (ListaErrores == null || !ListaErrores.Any())
+                    {
+                        @if (AnalisisRealizado)
+                        {
+                            <div class="alert alert-success text-center mt-3">
+                                <h5>✅ ¡Compilación Exitosa!</h5>
+                                <p>El código ha sido analizado y ejecutado correctamente.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted mt-5">
+                                <p>Presiona "Ejecutar" para analizar tu código.</p>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Línea</th>
+                                    <th>Mensaje</th>
+                                    <th>Código</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var error in ListaErrores.OrderBy(e => e.Linea))
+                                {
+                                    <tr class="@ObtenerClaseError(error.Tipo)">
+                                        <td><span class="badge @ObtenerBadgeError(error.Tipo)">@error.Tipo</span></td>
+                                        <td class="text-center fw-bold">@error.Linea</td>
+                                        <td>@error.Mensaje</td>
+                                        <td class="text-muted small">@error.CodigoError</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // --- ESTADO ---
+    private string CodigoFuente = "package main\n\nfunc main() {\n    var x = 10\n    var y = 20\n    print x + y\n}";
+    private int TotalLineas = 6;
+    private bool AnalisisRealizado = false;
+
+    private List<Token> ListaTokens = new();
+    private List<AnalisisError> ListaErrores = new();
+
+    // Estado del Intérprete
+    private List<string> SalidaConsola = new();
+    private List<string> ErroresEjecucion = new();
+
+    // --- LÓGICA DE COMPILACIÓN Y EJECUCIÓN ---
+    private void EjecutarAnalisis()
+    {
+        AnalisisRealizado = true;
+        ListaErrores.Clear();
+        ListaTokens.Clear();
+        SalidaConsola.Clear();
+        ErroresEjecucion.Clear();
+
+        // 1. ANÁLISIS LÉXICO (Escáner)
+        var scanner = new Escaner(CodigoFuente);
+        ListaTokens = scanner.ScanTokens();
+        ListaErrores.AddRange(scanner.Errores);
+
+        // Si hay errores léxicos graves, detenemos aquí.
+        if (ListaErrores.Any()) return;
+
+        // 2. ANÁLISIS SINTÁCTICO Y SEMÁNTICO (Parser)
+        var parser = new Parser(ListaTokens);
+        List<Instruccion> arbolSintactico = parser.Parse();
+        ListaErrores.AddRange(parser.Errores);
+
+        // 3. EJECUCIÓN (Evaluador)
+        // Solo ejecutamos si no hubo NINGÚN error de sintaxis o semántica
+        if (!ListaErrores.Any() && arbolSintactico != null && arbolSintactico.Any())
+        {
+            var evaluador = new Evaluador();
+            evaluador.Ejecutar(arbolSintactico);
+
+            // Recuperamos los resultados para mostrarlos en la UI
+            SalidaConsola = evaluador.Consola;
+            ErroresEjecucion = evaluador.ErroresEjecucion;
+        }
+    }
+
+    private void ActualizarLineas(ChangeEventArgs e)
+    {
+        var texto = e.Value?.ToString() ?? "";
+        TotalLineas = texto.Split('\n').Length;
+    }
+
+    // --- AYUDAS VISUALES ---
+    private string ObtenerBadgeError(string tipo) => tipo switch
+    {
+        "Léxico" => "bg-danger",
+        "Sintáctico" => "bg-warning text-dark",
+        "Semántico" => "bg-primary",
+        _ => "bg-secondary"
+    };
+
+    private string ObtenerClaseError(string tipo) => tipo switch
+    {
+        "Léxico" => "table-danger",
+        "Sintáctico" => "table-warning",
+        "Semántico" => "table-info",
+        _ => ""
+    };
+}

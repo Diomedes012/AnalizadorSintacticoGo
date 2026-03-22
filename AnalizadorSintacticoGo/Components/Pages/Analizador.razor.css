@@ -1,0 +1,56 @@
+﻿.editor-container {
+    display: flex;
+    border: 1px solid #ced4da;
+    height: 500px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.line-numbers {
+    background-color: #f0f0f0;
+    color: #888;
+    padding: 10px 5px;
+    text-align: right;
+    min-width: 40px;
+    border-right: 1px solid #ddd;
+    user-select: none;
+    overflow: hidden;
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.code-area {
+    border: none;
+    border-radius: 0;
+    resize: none;
+    padding: 10px;
+    line-height: 1.5;
+    font-size: 14px;
+    outline: none;
+    width: 100%;
+    height: 100%;
+}
+
+    .code-area:focus {
+        box-shadow: none;
+        border-color: transparent;
+    }
+
+.scrollable-table {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.terminal-box {
+    height: 150px;
+    overflow-y: auto;
+    border-radius: 0 0 0.375rem 0.375rem;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+
+.bg-black {
+    background-color: #1e1e1e !important;
+}
+
+.text-success {
+    color: #4af626 !important;
+}
