@@ -2,7 +2,7 @@
 
 namespace AnalizadorSintacticoGo.Models;
 
-// 1. CLASES BASE
+// CLASES BASE
 public interface INodoAST { }
 
 public abstract class Expresion : INodoAST { }
@@ -10,7 +10,7 @@ public abstract class Expresion : INodoAST { }
 public abstract class Instruccion : INodoAST { }
 
 
-// 2. EXPRESIONES
+// EXPRESIONES
 
 public class ExpresionNumero : Expresion
 {
@@ -30,6 +30,12 @@ public class ExpresionIdentificador : Expresion
     public ExpresionIdentificador(string nombre) => Nombre = nombre;
 }
 
+public class ExpresionBooleana : Expresion
+{
+    public bool Valor { get; set; }
+    public ExpresionBooleana(bool valor) => Valor = valor;
+}
+
 public class ExpresionBinaria : Expresion
 {
     public Expresion Izquierda { get; set; }
@@ -44,8 +50,37 @@ public class ExpresionBinaria : Expresion
     }
 }
 
+public class ExpresionUnaria : Expresion
+{
+    public string Operador { get; set; }
+    public Expresion Derecha { get; set; }
 
-// 3. INSTRUCCIONES
+    public ExpresionUnaria(string operador, Expresion derecha)
+    {
+        Operador = operador;
+        Derecha = derecha;
+    }
+}
+
+public class ExpresionArreglo : Expresion
+{
+    public List<Expresion> Elementos { get; set; } = new List<Expresion>();
+    public ExpresionArreglo(List<Expresion> elementos) => Elementos = elementos;
+}
+
+public class ExpresionIndice : Expresion
+{
+    public string NombreArreglo { get; set; }
+    public Expresion Indice { get; set; }
+
+    public ExpresionIndice(string nombreArreglo, Expresion indice)
+    {
+        NombreArreglo = nombreArreglo;
+        Indice = indice;
+    }
+}
+
+// INSTRUCCIONES
 
 public class InstruccionDeclaracion : Instruccion
 {
@@ -78,7 +113,6 @@ public class InstruccionBloque : Instruccion
     public List<Instruccion> Instrucciones { get; set; } = new List<Instruccion>();
 }
 
-// Para manejar el "if (condicion) { bloque }"
 public class InstruccionIf : Instruccion
 {
     public Expresion Condicion { get; set; }
@@ -93,7 +127,6 @@ public class InstruccionIf : Instruccion
     }
 }
 
-// Función nativa para imprimir resultados en la pantalla
 public class InstruccionPrint : Instruccion
 {
     public Expresion ExpresionAImprimir { get; set; }
@@ -109,5 +142,31 @@ public class InstruccionFuncion : Instruccion
     {
         Nombre = nombre;
         Cuerpo = cuerpo;
+    }
+}
+
+public class InstruccionFor : Instruccion
+{
+    public Expresion Condicion { get; set; }
+    public InstruccionBloque Cuerpo { get; set; }
+
+    public InstruccionFor(Expresion condicion, InstruccionBloque cuerpo)
+    {
+        Condicion = condicion;
+        Cuerpo = cuerpo;
+    }
+}
+
+public class InstruccionAsignacionIndice : Instruccion
+{
+    public string NombreArreglo { get; set; }
+    public Expresion Indice { get; set; }
+    public Expresion NuevoValor { get; set; }
+
+    public InstruccionAsignacionIndice(string nombreArreglo, Expresion indice, Expresion nuevoValor)
+    {
+        NombreArreglo = nombreArreglo;
+        Indice = indice;
+        NuevoValor = nuevoValor;
     }
 }

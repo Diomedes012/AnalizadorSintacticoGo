@@ -10,15 +10,13 @@ public class Escaner
     private int _linea;
     private int _columna;
 
-    // Lista pública de errores 
     public List<AnalisisError> Errores { get; private set; } = new List<AnalisisError>();
 
-    // Palabras reservadas de Go
     private static readonly HashSet<string> Keywords = new HashSet<string>
     {
-        "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough",
+        "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "false",
         "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range",
-        "return", "select", "struct", "switch", "type", "var"
+        "return", "select", "struct", "switch",  "true", "type", "var"
     };
 
     public Escaner(string source)
@@ -26,7 +24,7 @@ public class Escaner
         _source = source;
         _position = 0;
         _linea = 1;
-        _columna = 0; // Iniciamos en 0 para que al avanzar el primer caracter sea col 1
+        _columna = 0;
     }
 
     public List<Token> ScanTokens()
@@ -37,7 +35,6 @@ public class Escaner
         {
             char current = Peek();
 
-            // 1. Manejo de espacios y saltos de línea
             if (char.IsWhiteSpace(current))
             {
                 if (current == '\n')
@@ -49,29 +46,24 @@ public class Escaner
                 continue;
             }
 
-            // 2. Comentarios (//)
             if (current == '/' && PeekNext() == '/')
             {
-                // Consumir hasta el final de la línea
                 while (Peek() != '\n' && Peek() != '\0') Advance();
                 continue;
             }
 
-            // 3. Identificadores y Palabras Reservadas
             if (char.IsLetter(current) || current == '_')
             {
                 tokens.Add(ReadIdentifier());
                 continue;
             }
 
-            // 4. Números
             if (char.IsDigit(current))
             {
                 tokens.Add(ReadNumber());
                 continue;
             }
 
-            // 5. Cadenas (Strings)
             if (current == '"')
             {
                 var stringToken = ReadString();
@@ -82,7 +74,6 @@ public class Escaner
                 continue;
             }
 
-            // 6. Operadores y Delimitadores
             Token token = ReadSymbol();
             if (token != null)
             {
@@ -90,8 +81,6 @@ public class Escaner
                 continue;
             }
 
-            // 7. Error Léxico: Caracter desconocido
-            // Guardamos la posición actual antes de avanzar
             int errLine = _linea;
             int errCol = _columna + 1;
 
@@ -104,29 +93,24 @@ public class Escaner
                 CodigoError = "LEX001"
             });
 
-            Advance(); // Consumimos el caracter erróneo para no enciclar
+            Advance();
         }
 
-        // Agregamos el token EOF al final
         tokens.Add(new Token { Tipo = TokenType.EOF, Valor = "", Linea = _linea, Columna = _columna });
         return tokens;
     }
 
-    // --- Métodos Auxiliares ---
-
     private Token ReadIdentifier()
     {
-        int startCol = _columna + 1; // Ajuste para base 1
+        int startCol = _columna + 1;
         StringBuilder sb = new StringBuilder();
 
-        // Leemos mientras sea letra, dígito o guion bajo
         while (char.IsLetterOrDigit(Peek()) || Peek() == '_')
         {
             sb.Append(Advance());
         }
 
         string text = sb.ToString();
-        // Verificamos si es palabra reservada o identificador
         TokenType type = Keywords.Contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
 
         return new Token { Tipo = type, Valor = text, Linea = _linea, Columna = startCol };
@@ -141,11 +125,9 @@ public class Escaner
         {
             sb.Append(Advance());
         }
-
-        // Soporte para decimales (float)
         if (Peek() == '.' && char.IsDigit(PeekNext()))
         {
-            sb.Append(Advance()); // Consumir el punto
+            sb.Append(Advance());
             while (char.IsDigit(Peek())) sb.Append(Advance());
         }
 
@@ -154,13 +136,12 @@ public class Escaner
 
     private Token ReadString()
     {
-        // CORRECCIÓN 1: Definir startPosition antes de avanzar
         int startPosition = _position;
 
         int startCol = _columna;
         int startLine = _linea;
 
-        Advance(); // Consumir comilla inicial "
+        Advance();
 
         while (Peek() != '"' && !IsAtEnd())
         {
@@ -192,9 +173,8 @@ public class Escaner
             return null;
         }
 
-        Advance(); // Consumir la comilla de cierre "
+        Advance();
 
-        // CORRECCIÓN: Ahora startPosition sí existe
         string valor = _source.Substring(startPosition, _position - startPosition);
         return new Token { Tipo = TokenType.STRING, Valor = valor, Linea = startLine, Columna = startCol };
     }
@@ -204,7 +184,6 @@ public class Escaner
         int startCol = _columna + 1;
         char current = Peek();
 
-        // Lógica para operadores dobles de Go (:=, ==, <=, >=, !=)
         if (current == ':' && PeekNext() == '=')
         {
             Advance(); Advance();
@@ -230,8 +209,17 @@ public class Escaner
             Advance(); Advance();
             return new Token { Tipo = TokenType.OPERATOR, Valor = ">=", Linea = _linea, Columna = startCol };
         }
+        if (current == '&' && PeekNext() == '&')
+        {
+            Advance(); Advance();
+            return new Token { Tipo = TokenType.OPERATOR, Valor = "&&", Linea = _linea, Columna = startCol };
+        }
+        if (current == '|' && PeekNext() == '|')
+        {
+            Advance(); Advance();
+            return new Token { Tipo = TokenType.OPERATOR, Valor = "||", Linea = _linea, Columna = startCol };
+        }
 
-        // Operadores y Delimitadores simples
         string operators = "+-*/=<>!";
         string delimiters = "(){}[],.;";
 
@@ -247,7 +235,7 @@ public class Escaner
             return new Token { Tipo = TokenType.DELIMITER, Valor = current.ToString(), Linea = _linea, Columna = startCol };
         }
 
-        return null; // No es un símbolo conocido (se manejará como error en el loop principal)
+        return null;)
     }
 
     // --- Navegación del puntero ---

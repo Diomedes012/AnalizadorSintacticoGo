@@ -5,13 +5,11 @@ namespace AnalizadorSintacticoGo.Services
 {
     public class TablaSimbolos
     {
-        // Pila de ámbitos: Cada elemento es un Diccionario (Nombre -> Simbolo)
         private readonly Stack<Dictionary<string, Simbolo>> _pilaAmbitos;
 
         public TablaSimbolos()
         {
             _pilaAmbitos = new Stack<Dictionary<string, Simbolo>>();
-            // Ámbito global inicial
             _pilaAmbitos.Push(new Dictionary<string, Simbolo>());
         }
 
@@ -50,7 +48,6 @@ namespace AnalizadorSintacticoGo.Services
 
         public Simbolo Obtener(string nombre)
         {
-            // Buscamos desde el ámbito actual hacia abajo (hasta el global)
             foreach (var ambito in _pilaAmbitos)
             {
                 if (ambito.ContainsKey(nombre))
@@ -58,7 +55,7 @@ namespace AnalizadorSintacticoGo.Services
                     return ambito[nombre];
                 }
             }
-            return null; // No existe
+            return null;
         }
     }
 }

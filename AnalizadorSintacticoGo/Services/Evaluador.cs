@@ -6,13 +6,10 @@ namespace AnalizadorSintacticoGo.Services
 {
     public class Evaluador
     {
-        // Memoria para guardar los valores reales
         private readonly TablaSimbolos _memoria = new TablaSimbolos();
 
-        // Aquí guardaremos todo lo que el programa quiera imprimir en pantalla
         public List<string> Consola { get; private set; } = new List<string>();
 
-        // Errores que ocurren mientras el programa corre
         public List<string> ErroresEjecucion { get; private set; } = new List<string>();
 
         public void Ejecutar(List<Instruccion> programa)
@@ -29,15 +26,13 @@ namespace AnalizadorSintacticoGo.Services
                 catch (Exception ex)
                 {
                     ErroresEjecucion.Add($"Error en tiempo de ejecución: {ex.Message}");
-                    break; // Un error fatal detiene el programa
+                    break;
                 }
             }
         }
 
-        // --- EVALUADOR DE INSTRUCCIONES (Acciones) ---
         private void EjecutarInstruccion(Instruccion inst)
         {
-            // Usamos Pattern Matching de C# para saber qué tipo de nodo es
             switch (inst)
             {
                 case InstruccionDeclaracion dec:
@@ -47,7 +42,6 @@ namespace AnalizadorSintacticoGo.Services
                         valorInicial = EvaluarExpresion(dec.ValorInicial);
                     }
 
-                    // Guardamos en memoria con su VALOR real
                     var sim = new Simbolo { Nombre = dec.NombreVariable, Valor = valorInicial };
                     _memoria.Declarar(sim, new List<AnalisisError>());
                     break;
@@ -57,7 +51,7 @@ namespace AnalizadorSintacticoGo.Services
                     var variable = _memoria.Obtener(asig.NombreVariable);
                     if (variable != null)
                     {
-                        variable.Valor = nuevoValor; // Actualizamos la memoria
+                        variable.Valor = nuevoValor;
                     }
                     break;
 
@@ -71,8 +65,51 @@ namespace AnalizadorSintacticoGo.Services
                         }
                         else if (ifInst.RamaFalsa != null)
                         {
-                            // Si la condición es falsa y tenemos un Else, ejecutamos esto
                             EjecutarInstruccion(ifInst.RamaFalsa);
+                        }
+                    }
+                    break;
+
+                case InstruccionFor forInst:
+                    int limiteIteraciones = 10000;
+                    int iteracionActual = 0;
+
+                    while (true)
+                    {
+                        object cond = EvaluarExpresion(forInst.Condicion);
+
+                        if (cond is bool bFor && bFor)
+                        {
+                            EjecutarInstruccion(forInst.Cuerpo);
+
+                            iteracionActual++;
+                            if (iteracionActual >= limiteIteraciones)
+                            {
+                                throw new Exception("Bucle infinito detenido por seguridad (> 10,000 iteraciones).");
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    break;
+
+                case InstruccionAsignacionIndice asigIndice:
+                    var varArr = _memoria.Obtener(asigIndice.NombreArreglo);
+                    if (varArr == null) throw new Exception($"El arreglo '{asigIndice.NombreArreglo}' no existe.");
+
+                    if (varArr.Valor is List<object> laLista)
+                    {
+                        object indexVal = EvaluarExpresion(asigIndice.Indice);
+                        if (indexVal is double d)
+                        {
+                            int i = (int)d;
+                            if (i >= 0 && i < laLista.Count)
+                            {
+                                laLista[i] = EvaluarExpresion(asigIndice.NuevoValor);
+                            }
+                            else throw new Exception($"Índice [{i}] fuera de los límites.");
                         }
                     }
                     break;
@@ -87,14 +124,11 @@ namespace AnalizadorSintacticoGo.Services
                     break;
 
                 case InstruccionPrint printInst:
-                    // Evaluamos lo que sea que esté dentro del print y lo mandamos a la consola
                     object valorImprimir = EvaluarExpresion(printInst.ExpresionAImprimir);
                     Consola.Add(valorImprimir?.ToString() ?? "nil");
                     break;
 
                 case InstruccionFuncion func:
-                    // Como Go ejecuta todo desde func main(), si vemos la función main, 
-                    // ejecutamos su bloque de código inmediatamente.
                     if (func.Nombre == "main")
                     {
                         EjecutarInstruccion(func.Cuerpo);
@@ -103,7 +137,6 @@ namespace AnalizadorSintacticoGo.Services
             }
         }
 
-        // --- EVALUADOR DE EXPRESIONES (Matemáticas y Lógica) ---
         private object EvaluarExpresion(Expresion expr)
         {
             switch (expr)
@@ -117,7 +150,6 @@ namespace AnalizadorSintacticoGo.Services
                     return variable.Valor;
 
                 case ExpresionBinaria bin:
-                    // Recursividad: Evaluamos la izquierda y la derecha hasta llegar a números
                     object izq = EvaluarExpresion(bin.Izquierda);
                     object der = EvaluarExpresion(bin.Derecha);
 
@@ -126,15 +158,60 @@ namespace AnalizadorSintacticoGo.Services
                 case ExpresionCadena cad:
                     return cad.Valor;
 
+                case ExpresionBooleana boolExpr:
+                    return boolExpr.Valor;
+
+                case ExpresionArreglo arr:
+                    List<object> listaEnMemoria = new List<object>();
+                    foreach (var elemento in arr.Elementos)
+                    {
+                        listaEnMemoria.Add(EvaluarExpresion(elemento));
+                    }
+                    return listaEnMemoria;
+
+                case ExpresionIndice ind:
+                    var variableArreglo = _memoria.Obtener(ind.NombreArreglo);
+                    if (variableArreglo == null) throw new Exception($"El arreglo '{ind.NombreArreglo}' no existe.");
+
+                    if (variableArreglo.Valor is List<object> miLista)
+                    {
+                        object indiceValor = EvaluarExpresion(ind.Indice);
+
+                        if (indiceValor is double dIndice)
+                        {
+                            int i = (int)dIndice;
+                            if (i >= 0 && i < miLista.Count) return miLista[i];
+                            throw new Exception($"Índice [{i}] fuera de los límites del arreglo.");
+                        }
+                        throw new Exception("El índice del arreglo debe ser un número entero.");
+                    }
+                    throw new Exception($"La variable '{ind.NombreArreglo}' no es un arreglo. Su tipo real en memoria es: {variableArreglo.Valor?.GetType().Name ?? "nulo"}");
+
+                case ExpresionUnaria un:
+                    object derecha = EvaluarExpresion(un.Derecha);
+                    if (un.Operador == "!" && derecha is bool bVal)
+                    {
+                        return !bVal;
+                    }
+                    throw new Exception($"No se puede aplicar '{un.Operador}' al valor {derecha}.");
+
                 default:
                     throw new Exception("Expresión no soportada por el intérprete.");
             }
         }
 
-        // --- EL CEREBRO MATEMÁTICO ---
         private object CalcularOperacion(object izq, string op, object der)
         {
-            // Solo operamos si ambos lados son números (doubles)
+            if (izq is bool b1 && der is bool b2)
+            {
+                switch (op)
+                {
+                    case "&&": return b1 && b2;
+                    case "||": return b1 || b2;
+                    case "==": return b1 == b2;
+                    case "!=": return b1 != b2;
+                }
+            }
             if (izq is double d1 && der is double d2)
             {
                 switch (op)
