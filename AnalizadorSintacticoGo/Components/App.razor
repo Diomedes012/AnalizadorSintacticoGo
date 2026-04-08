@@ -18,6 +18,38 @@
     <Routes />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script>
+        window.habilitarTabulador = function (elementoId) {
+            var textarea = document.getElementById(elementoId);
+            var highlight = document.querySelector('.highlight-layer');
+            var lineNumbers = document.getElementById('lineNumbers');
+
+            if (textarea) {
+                textarea.addEventListener('scroll', function() {
+                    if (highlight) {
+                        highlight.scrollTop = this.scrollTop;
+                        highlight.scrollLeft = this.scrollLeft;
+                    }
+                    if (lineNumbers) {
+                        lineNumbers.scrollTop = this.scrollTop;
+                    }
+                });
+
+                textarea.addEventListener('keydown', function (e) {
+                    if (e.key == 'Tab') {
+                        e.preventDefault();
+                        var start = this.selectionStart;
+                        var end = this.selectionEnd;
+
+                        this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                        this.selectionStart = this.selectionEnd = start + 4;
+
+                        this.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+            }
+        }
+    </script>
 </body>
 
 </html>

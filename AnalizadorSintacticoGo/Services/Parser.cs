@@ -85,28 +85,32 @@ public class Parser
 
     private Instruccion ParseFunction()
     {
-        Token nombreToken = Consume(TokenType.IDENTIFIER, "Se esperaba un nombre para la función.");
-        Consume(TokenType.DELIMITER, "(", "Se esperaba '(' después del nombre de la función.");
+        Token nombre = Consume(TokenType.IDENTIFIER, "Se esperaba el nombre de la función.");
+        Consume(TokenType.DELIMITER, "(", "Se esperaba '(' después del nombre.");
 
+        List<string> parametros = new List<string>();
+        if (!Check(TokenType.DELIMITER, ")"))
+        {
+            do
+            {
+                Token param = Consume(TokenType.IDENTIFIER, "Se esperaba el nombre del parámetro.");
+                parametros.Add(param.Valor);
+            } while (Match(TokenType.DELIMITER, ","));
+        }
 
         Consume(TokenType.DELIMITER, ")", "Se esperaba ')' después de los parámetros.");
 
-        if (Check(TokenType.IDENTIFIER) || Check(TokenType.KEYWORD))
+        _tablaSimbolos.EntrarAmbito();
+        foreach (var p in parametros)
         {
-            Advance();
+            _tablaSimbolos.Declarar(new Simbolo { Nombre = p, Categoria = "param" }, Errores);
         }
 
-        if (Check(TokenType.DELIMITER, "{"))
-        {
-            InstruccionBloque cuerpo = ParseBlock(); 
+        InstruccionBloque cuerpo = ParseBlock();
 
-            return new InstruccionFuncion(nombreToken.Valor, cuerpo);
-        }
-        else
-        {
-            Error("Se esperaba '{' para iniciar el cuerpo de la función.", "SYN003");
-            return null;
-        }
+        _tablaSimbolos.SalirAmbito();
+
+        return new InstruccionFuncion(nombre.Valor, parametros, cuerpo);
     }
 
     private Instruccion ParseVarDeclaration()
@@ -175,6 +179,16 @@ public class Parser
             InstruccionBloque cuerpo = ParseBlock();
 
             return new InstruccionFor(condicion, cuerpo);
+        }
+
+        if (Match(TokenType.KEYWORD, "return"))
+        {
+            Expresion valor = null;
+            if (!Check(TokenType.DELIMITER, "}"))
+            {
+                valor = ParseExpression();
+            }
+            return new InstruccionReturn(valor);
         }
 
         if (Match(TokenType.KEYWORD, "var"))
@@ -333,21 +347,35 @@ public class Parser
         if (Check(TokenType.IDENTIFIER))
         {
             Token tokenUso = Peek();
+            Advance(); 
+
+            if (Match(TokenType.DELIMITER, "("))
+            {
+                List<Expresion> argumentos = new List<Expresion>();
+                if (!Check(TokenType.DELIMITER, ")"))
+                {
+                    do
+                    {
+                        argumentos.Add(ParseExpression());
+                    } while (Match(TokenType.DELIMITER, ","));
+                }
+                Consume(TokenType.DELIMITER, ")", "Falta cerrar el paréntesis ')' en la llamada.");
+                return new ExpresionLlamada(tokenUso.Valor, argumentos);
+            }
+
+            if (Match(TokenType.DELIMITER, "["))
+            {
+                Expresion indice = ParseExpression();
+                Consume(TokenType.DELIMITER, "]", "Falta cerrar el corchete ']' del índice.");
+                return new ExpresionIndice(tokenUso.Valor, indice);
+            }
+
             if (tokenUso.Valor != "print")
             {
                 Simbolo sim = _tablaSimbolos.Obtener(tokenUso.Valor);
                 if (sim == null)
                     Errores.Add(new AnalisisError { Tipo = "Semántico", Linea = tokenUso.Linea, Mensaje = $"Variable '{tokenUso.Valor}' no declarada.", CodigoError = "SEM002" });
             }
-            Advance();
-            if (Match(TokenType.DELIMITER, "["))
-            {
-                Expresion indice = ParseExpression();
-                Consume(TokenType.DELIMITER, "]", "Falta cerrar el corchete ']' del índice.");
-
-                return new ExpresionIndice(tokenUso.Valor, indice);
-            }
-
             return new ExpresionIdentificador(tokenUso.Valor);
         }
 

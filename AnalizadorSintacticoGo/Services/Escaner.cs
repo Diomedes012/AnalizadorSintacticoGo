@@ -235,7 +235,7 @@ public class Escaner
             return new Token { Tipo = TokenType.DELIMITER, Valor = current.ToString(), Linea = _linea, Columna = startCol };
         }
 
-        return null;)
+        return null;
     }
 
     // --- Navegación del puntero ---

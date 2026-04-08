@@ -2,42 +2,52 @@
 @using AnalizadorSintacticoGo.Models
 @using AnalizadorSintacticoGo.Services
 @rendermode InteractiveServer
+@using System.Text.RegularExpressions
+@inject IJSRuntime JS 
 
 <div class="container-fluid mt-4">
     <div class="row">
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">📝 Editor de Código (Go)</h5>
-                    <button class="btn btn-success btn-sm" @onclick="EjecutarAnalisis">
-                        <i class="oi oi-play-circle"></i> Ejecutar
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center rounded-top">
+                    <h5 class="mb-0 font-monospace">📝 Editor Go</h5>
+                    <button class="btn btn-success btn-sm fw-bold" @onclick="EjecutarAnalisis">
+                        ▶ Ejecutar
                     </button>
                 </div>
-                <div class="card-body p-0">
-                    <div class="editor-container">
-                        <div class="line-numbers">
-                            @for (int i = 1; i <= TotalLineas; i++)
-                            {
-                                <div>@i</div>
-                            }
+                <div class="card-body p-0 bg-editor">
+                    <div class="d-flex editor-wrapper">
+
+                        <div class="line-numbers text-end px-2 text-secondary font-monospace" id="lineNumbers">
+                            @((MarkupString)NumerosDeLinea)
                         </div>
-                        <textarea @bind="CodigoFuente"
-                                  @oninput="ActualizarLineas"
-                                  class="form-control code-area"
-                                  placeholder="Escribe tu código Go aquí..."
-                                  spellcheck="false"></textarea>
+
+                        <div class="editor-container flex-grow-1">
+                            <div class="highlight-layer font-monospace" aria-hidden="true">
+                                @((MarkupString)CodigoConColores)
+                            </div>
+                            <textarea @bind="CodigoFuente"
+                                      @bind:event="oninput"
+                                      id="codigoEditor"
+                                      class="form-control code-area transparent-text font-monospace"
+                                      spellcheck="false"></textarea>
+                        </div>
+
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="card shadow-sm mt-3 border-0">
+        <div class="col-lg-5 d-flex flex-column gap-3">
+
+            <div class="card shadow-sm border-0 flex-grow-1">
                 <div class="card-header bg-black text-white border-bottom-0 rounded-top">
-                    <h6 class="mb-0 font-monospace">_ Terminal Salida</h6>
+                    <h6 class="mb-0 font-monospace">>_ Terminal</h6>
                 </div>
                 <div class="card-body bg-black text-light font-monospace p-3 terminal-box">
                     @if (ListaErrores.Any())
                     {
-                        <span class="text-danger">Existen errores de compilación. Revisa el panel derecho.</span>
+                        <span class="text-danger">Existen errores de compilación. Revisa el reporte abajo.</span>
                     }
                     else if (ErroresEjecucion.Any())
                     {
@@ -55,53 +65,47 @@
                     }
                     else if (AnalisisRealizado)
                     {
-                        <span class="text-muted">Proceso terminado con código 0 (Sin salida).</span>
+                        <span class="text-muted">Proceso terminado con código 0.</span>
                     }
                 </div>
             </div>
-        </div>
 
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">🔍 Reporte de Compilación</h5>
+            <div class="card shadow-sm border-0 flex-grow-1">
+                <div class="card-header bg-danger text-white rounded-top">
+                    <h6 class="mb-0">🔍 Reporte de Compilación</h6>
                 </div>
-                <div class="card-body scrollable-table">
+                <div class="card-body scrollable-table p-0">
                     @if (ListaErrores == null || !ListaErrores.Any())
                     {
                         @if (AnalisisRealizado)
                         {
-                            <div class="alert alert-success text-center mt-3">
-                                <h5>✅ ¡Compilación Exitosa!</h5>
-                                <p>El código ha sido analizado y ejecutado correctamente.</p>
+                            <div class="p-4 text-center">
+                                <h5 class="text-success">✅ ¡Compilación Exitosa!</h5>
+                                <p class="text-muted mb-0">No se detectaron errores de sintaxis.</p>
                             </div>
                         }
                         else
                         {
-                            <div class="text-center text-muted mt-5">
-                                <p>Presiona "Ejecutar" para analizar tu código.</p>
+                            <div class="p-4 text-center text-muted">
+                                <p class="mb-0">Esperando código para analizar...</p>
                             </div>
                         }
                     }
                     else
                     {
-                        <table class="table table-hover table-bordered">
+                        <table class="table table-hover table-striped mb-0">
                             <thead class="table-dark">
                                 <tr>
-                                    <th>Tipo</th>
                                     <th>Línea</th>
                                     <th>Mensaje</th>
-                                    <th>Código</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var error in ListaErrores.OrderBy(e => e.Linea))
                                 {
-                                    <tr class="@ObtenerClaseError(error.Tipo)">
-                                        <td><span class="badge @ObtenerBadgeError(error.Tipo)">@error.Tipo</span></td>
-                                        <td class="text-center fw-bold">@error.Linea</td>
-                                        <td>@error.Mensaje</td>
-                                        <td class="text-muted small">@error.CodigoError</td>
+                                    <tr>
+                                        <td class="text-center fw-bold text-danger">@error.Linea</td>
+                                        <td><small>@error.Mensaje</small></td>
                                     </tr>
                                 }
                             </tbody>
@@ -109,78 +113,88 @@
                     }
                 </div>
             </div>
+
         </div>
     </div>
 </div>
 
 @code {
-    // --- ESTADO ---
-    private string CodigoFuente = "package main\n\nfunc main() {\n    var x = 10\n    var y = 20\n    print x + y\n}";
-    private int TotalLineas = 6;
+    private string CodigoFuente = "package main\n\nfunc main() {\n    var mensaje = \"Hola Compilador\"\n    print mensaje\n}";
     private bool AnalisisRealizado = false;
 
     private List<Token> ListaTokens = new();
     private List<AnalisisError> ListaErrores = new();
-
-    // Estado del Intérprete
     private List<string> SalidaConsola = new();
     private List<string> ErroresEjecucion = new();
 
-    // --- LÓGICA DE COMPILACIÓN Y EJECUCIÓN ---
+    private string CodigoConColores => AplicarColores(CodigoFuente);
+
+    private string NumerosDeLinea => GenerarNumerosLinea(CodigoFuente);
+
+    private string GenerarNumerosLinea(string codigo)
+    {
+        if (string.IsNullOrEmpty(codigo)) return "1<br>";
+
+        int cantidadLineas = codigo.Split('\n').Length;
+        var sb = new System.Text.StringBuilder();
+
+        for (int i = 1; i <= Math.Max(1, cantidadLineas); i++)
+        {
+            sb.Append($"{i}<br>");
+        }
+        return sb.ToString();
+    }
+
+    private string AplicarColores(string codigo)
+    {
+        if (string.IsNullOrEmpty(codigo)) return "";
+
+        var html = codigo.Replace("<", "&lt;").Replace(">", "&gt;");
+
+        html = Regex.Replace(html, @"&quot;.*?&quot;", m => $"<span style='color: #ce9178;'>{m.Value}</span>");
+
+        html = Regex.Replace(html, @"\b\d+(\.\d+)?\b", m => $"<span style='color: #b5cea8;'>{m.Value}</span>");
+
+        string[] keywords = { "func", "var", "if", "else", "for", "return", "package", "print", "true", "false" };
+        foreach (var kw in keywords)
+        {
+            html = Regex.Replace(html, $@"\b{kw}\b", $"<span style='color: #569cd6; font-weight: bold;'>{kw}</span>");
+        }
+
+        html = Regex.Replace(html, @"//.*", m => $"<span style='color: #6a9955;'>{m.Value}</span>");
+
+        return html;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("habilitarTabulador", "codigoEditor");
+        }
+    }
+
     private void EjecutarAnalisis()
     {
         AnalisisRealizado = true;
-        ListaErrores.Clear();
-        ListaTokens.Clear();
-        SalidaConsola.Clear();
-        ErroresEjecucion.Clear();
+        ListaErrores.Clear(); ListaTokens.Clear(); SalidaConsola.Clear(); ErroresEjecucion.Clear();
 
-        // 1. ANÁLISIS LÉXICO (Escáner)
         var scanner = new Escaner(CodigoFuente);
         ListaTokens = scanner.ScanTokens();
         ListaErrores.AddRange(scanner.Errores);
 
-        // Si hay errores léxicos graves, detenemos aquí.
         if (ListaErrores.Any()) return;
 
-        // 2. ANÁLISIS SINTÁCTICO Y SEMÁNTICO (Parser)
         var parser = new Parser(ListaTokens);
         List<Instruccion> arbolSintactico = parser.Parse();
         ListaErrores.AddRange(parser.Errores);
 
-        // 3. EJECUCIÓN (Evaluador)
-        // Solo ejecutamos si no hubo NINGÚN error de sintaxis o semántica
         if (!ListaErrores.Any() && arbolSintactico != null && arbolSintactico.Any())
         {
             var evaluador = new Evaluador();
             evaluador.Ejecutar(arbolSintactico);
-
-            // Recuperamos los resultados para mostrarlos en la UI
             SalidaConsola = evaluador.Consola;
             ErroresEjecucion = evaluador.ErroresEjecucion;
         }
     }
-
-    private void ActualizarLineas(ChangeEventArgs e)
-    {
-        var texto = e.Value?.ToString() ?? "";
-        TotalLineas = texto.Split('\n').Length;
-    }
-
-    // --- AYUDAS VISUALES ---
-    private string ObtenerBadgeError(string tipo) => tipo switch
-    {
-        "Léxico" => "bg-danger",
-        "Sintáctico" => "bg-warning text-dark",
-        "Semántico" => "bg-primary",
-        _ => "bg-secondary"
-    };
-
-    private string ObtenerClaseError(string tipo) => tipo switch
-    {
-        "Léxico" => "table-danger",
-        "Sintáctico" => "table-warning",
-        "Semántico" => "table-info",
-        _ => ""
-    };
 }

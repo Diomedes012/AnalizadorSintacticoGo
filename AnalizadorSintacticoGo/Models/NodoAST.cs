@@ -80,6 +80,18 @@ public class ExpresionIndice : Expresion
     }
 }
 
+public class ExpresionLlamada : Expresion
+{
+    public string NombreFuncion { get; set; }
+    public List<Expresion> Argumentos { get; set; }
+
+    public ExpresionLlamada(string nombreFuncion, List<Expresion> argumentos)
+    {
+        NombreFuncion = nombreFuncion;
+        Argumentos = argumentos;
+    }
+}
+
 // INSTRUCCIONES
 
 public class InstruccionDeclaracion : Instruccion
@@ -136,11 +148,13 @@ public class InstruccionPrint : Instruccion
 public class InstruccionFuncion : Instruccion
 {
     public string Nombre { get; set; }
+    public List<string> Parametros { get; set; }
     public InstruccionBloque Cuerpo { get; set; }
 
-    public InstruccionFuncion(string nombre, InstruccionBloque cuerpo)
+    public InstruccionFuncion(string nombre, List<string> parametros, InstruccionBloque cuerpo)
     {
         Nombre = nombre;
+        Parametros = parametros;
         Cuerpo = cuerpo;
     }
 }
@@ -169,4 +183,10 @@ public class InstruccionAsignacionIndice : Instruccion
         Indice = indice;
         NuevoValor = nuevoValor;
     }
+}
+
+public class InstruccionReturn : Instruccion
+{
+    public Expresion Valor { get; set; }
+    public InstruccionReturn(Expresion valor) => Valor = valor;
 }
